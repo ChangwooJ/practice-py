@@ -1,4 +1,6 @@
-# 광고 데이터 실습: CSV 읽기와 비용 한 칸 변환
+# 광고 성과 점검 도구 — 데이터 단계
+
+앞부분의 1~3단계 코드는 개념을 익힌 과정의 기록이다. **현재 실행되는 `demo.py`의 흐름은 맨 아래 `데이터 마일스톤`에 정리했다.**
 
 1단계의 목표는 `data/campaigns.csv`를 읽어 각 광고를 **열 이름으로 찾을 수 있는 딕셔너리**로 만드는 것이다. 숫자 변환과 데이터 검증은 아직 하지 않는다.
 
@@ -121,3 +123,35 @@ print("총비용:", total_cost)
 합계는 `0 → 12000 → 20000`으로 변한다. CSV 원본의 비용은 여전히 문자열이며, 이 예시는 계산할 때만 정수로 바꾼다.
 
 직접 확인할 때는 `python demo.py`를 실행한다. 현재 CSV의 총비용은 `20000`이어야 한다.
+
+## 데이터 마일스톤: 숫자 검증과 점검 규칙
+
+최종 목표는 “비용은 발생했는데 전환이 없는 광고를 찾아줘”라는 요청에 실제 광고 데이터로 답하는 API다. 지금까지는 그 API가 사용할 **데이터 처리 핵심**을 만들었다.
+
+```text
+CSV 파일 → load_campaigns → 문자열 딕셔너리 → parse_campaigns → Campaign 목록
+                                                      ↓
+                                  find_spend_without_conversions → 점검 대상
+```
+
+### 새 코드의 역할
+
+- `Campaign`은 광고 한 건의 필드를 묶는다. `cost`와 `conversions`를 `int`로 표현하므로 이후 계산 코드에서 매번 `int(...)`를 반복할 필요가 없다. `@dataclass(frozen=True)`는 생성 이후 필드를 다시 대입하지 못하게 한다.
+- `load_campaigns`는 헤더에 `campaign_id`, `campaign_name`, `cost`, `conversions`가 있는지 확인한 뒤 CSV를 읽는다. 필수 열이 없으면 즉시 `ValueError`를 낸다.
+- `parse_campaigns`는 각 행의 빈 값과 숫자 형식을 확인한다. `enumerate(rows, start=2)`를 쓰는 이유는 CSV 첫 줄이 헤더이므로 첫 데이터가 2행이기 때문이다. 오류 메시지에 행 번호와 열 이름을 넣어 원본 파일에서 수정할 곳을 찾을 수 있다.
+- `find_spend_without_conversions`는 **비용이 0보다 크고 전환 수가 0인 광고**만 모은다. 비용도 0인 광고는 이 규칙의 점검 대상이 아니다.
+
+`demo.py`는 세 단계를 순서대로 호출한다. `python demo.py`를 실행하면 현재 데이터에서 총 광고비는 `20000원`, 점검 대상은 `A02 배너 광고` 한 건이어야 한다.
+
+```powershell
+python demo.py
+python -m unittest discover -s tests -v
+```
+
+테스트는 정상 숫자 변환, 빈 값·잘못된 숫자·음수, 누락된 필수 열, 점검 규칙의 경계(비용 0)를 확인한다.
+
+### 실제 공개 코드와 비교
+
+[Langflow의 CSV 로더](https://github.com/langflow-ai/langflow/blob/504c02fc47e76087b82b0e7cbe4186e9cdd916d4/src/lfx/src/lfx/components/data_source/csv_to_data.py#L50-L109)는 입력 종류를 먼저 확인하고, 파일 접근 경로와 CSV 파싱 오류를 다룬다. 우리 실습도 **읽기 → 값 검증 → 점검 규칙**을 나눴다. `Campaign`과 점검 규칙은 광고 데이터 학습을 위해 직접 작성했으며 Langflow의 구현은 아니다.
+
+다음 마일스톤에서는 이 데이터 처리 코드를 FastAPI에서 호출해 HTTP 응답으로 제공한다.
