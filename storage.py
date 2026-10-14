@@ -38,7 +38,7 @@ def save_campaigns(dsn: str, campaigns: list[Campaign]) -> None:
 
 
 def load_campaigns_from_db(dsn: str) -> list[Campaign]:
-    with psycopg.connect(dsn) as connection:
+    with psycopg.connect(dsn, connect_timeout=5) as connection:
         rows = connection.execute(
             "SELECT campaign_id, campaign_name, cost, conversions FROM campaigns ORDER BY campaign_id"
         ).fetchall()

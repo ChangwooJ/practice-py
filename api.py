@@ -1,18 +1,27 @@
+import os
 from dataclasses import asdict
-from pathlib import Path
 
-from fastapi import FastAPI
+import psycopg
+from fastapi import FastAPI, HTTPException
 
-from campaigns import find_spend_without_conversions, load_campaigns, parse_campaigns
+import storage
+from campaigns import find_spend_without_conversions
 
 
 app = FastAPI()
-DATA_PATH = Path(__file__).parent / "data" / "campaigns.csv"
 
 
 @app.get("/campaigns/report")
 def get_campaign_report():
-    campaigns = parse_campaigns(load_campaigns(DATA_PATH))
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        raise HTTPException(status_code=503, detail="데이터베이스 연결 설정이 필요합니다")
+
+    try:
+        campaigns = storage.load_campaigns_from_db(database_url)
+    except psycopg.Error as exc:
+        raise HTTPException(status_code=503, detail="광고 데이터를 조회할 수 없습니다") from exc
+
     flagged = find_spend_without_conversions(campaigns)
 
     return {
