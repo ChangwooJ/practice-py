@@ -1,5 +1,5 @@
 import csv
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 
@@ -60,3 +60,12 @@ def find_spend_without_conversions(campaigns: list[Campaign]) -> list[Campaign]:
         if campaign.cost > 0 and campaign.conversions == 0:
             flagged.append(campaign)
     return flagged
+
+
+def build_campaign_report(campaigns: list[Campaign]) -> dict:
+    flagged = find_spend_without_conversions(campaigns)
+    return {
+        "total_cost": sum(campaign.cost for campaign in campaigns),
+        "flagged_count": len(flagged),
+        "flagged_campaigns": [asdict(campaign) for campaign in flagged],
+    }
